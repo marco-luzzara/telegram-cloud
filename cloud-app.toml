@@ -1,0 +1,7 @@
+[project]
+name = "cloud-app"
+version = "0.0.1"
+description = "An implementation of Telegram Client to use Saved Messages as a Cloud storage"
+authors = ["Marco Luzzara <marco.luzzara.work@gmail.com>"]
+
+[project.dependencies]
