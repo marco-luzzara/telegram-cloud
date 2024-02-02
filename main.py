@@ -1,46 +1,34 @@
 import logging
 import os
-import redis as redislib
-from dataclasses import dataclass
-from typing import NoReturn, Optional
+import redis.asyncio as redis
+from typing import NoReturn
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, ContextTypes, CommandHandler
 
-from aiotdlib import Client
+from aiotdlib import Client as TdLibClient
 from dotenv import load_dotenv
+
+from bl.BasicUserInfo import BasicUserInfo
+from services.user_conn_info_service import UserConnInfoService
 
 load_dotenv()
 
+# initialize user connection info service
 USER_CONN_DATA_DB_HOST = os.getenv('USER_CONN_DATA_DB_HOST')
 USER_CONN_DATA_DB_PORT = int(os.getenv('USER_CONN_DATA_DB_PORT'))
-redis = redislib.Redis(host=USER_CONN_DATA_DB_HOST, port=USER_CONN_DATA_DB_PORT, decode_responses=True)
+redis_client = redis.Redis(host=USER_CONN_DATA_DB_HOST, port=USER_CONN_DATA_DB_PORT, decode_responses=True)
+user_conn_info_service = UserConnInfoService(redis_client)
 
-API_ID = int(os.getenv('API_ID'))
-API_HASH = os.getenv('API_HASH')
-PHONE_NUMBER = os.getenv('PHONE_NUMBER')
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
-
-@dataclass
-class BasicUserInfo:
-    first_name: str
-    last_name: str
-    username: Optional[str]
-    id: int
-
-    def __str__(self) -> str:
-        s = f"{self.first_name} {self.last_name}"
-        if self.username is not None:
-            s += f" (@{self.username})"
-
-        return s
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    client = Client(
-        api_id=API_ID,
-        api_hash=API_HASH,
-        phone_number=PHONE_NUMBER
+    await user_conn_info_service.save_user_conn_info()
+    # start mini app to ask user for its connection info
+    user_conn_info = None # TODO
+    client = TdLibClient(
+        api_id=user_conn_info.api_id,
+        api_hash=user_conn_info.api_hash,
+        phone_number=user_conn_info.phone_number
     )
     async with client:
         me = await client.api.get_me()
@@ -56,6 +44,8 @@ def start_bot() -> NoReturn:
 
     start_handler = CommandHandler('start', start)
     application.add_handler(start_handler)
+
+    #TODO: await client.aclose() on error handler
     application.run_polling()
 
 if __name__ == '__main__':
